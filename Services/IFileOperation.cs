@@ -74,13 +74,33 @@ namespace Task1.Services
 
         protected static async Task<int> DeleteSingleUser(string connectionString, string Email)
         {
+            int res = 0;
             using var connection = new MySqlConnection(connectionString);
             connection.Open();
 
-            string sCommand = $"DELETE FROM Details WHERE Email = @Email";
-            MySqlCommand command = new MySqlCommand(sCommand, connection);
-            command.Parameters.AddWithValue("@Email", Email);
-            int res = await command.ExecuteNonQueryAsync();
+            MySqlCommand command = connection.CreateCommand();
+            MySqlTransaction transaction = connection.BeginTransaction();;
+
+            try {
+                command.Connection = connection;
+                command.Transaction = transaction;
+                command.CommandText = $"DELETE FROM Details WHERE Email = @Email";
+                command.Parameters.AddWithValue("@Email", Email);
+
+
+                await command.PrepareAsync();
+                res = await command.ExecuteNonQueryAsync();
+
+                if(res > 1) {
+                    throw new Exception("");
+                }
+                await transaction.CommitAsync();
+            } catch(Exception e) {
+                Console.WriteLine($"[-] Unable to commit: --- {e}");
+                await transaction.RollbackAsync();
+            } finally {
+                connection.Close();
+            }
 
             await connection.CloseAsync();
             return res;
@@ -151,6 +171,7 @@ namespace Task1.Services
                 SqlCommand.Append("), ");
             }
             SqlCommand.Remove(SqlCommand.Length - 2, 2);
+            SqlCommand.Append(" ON DUPLICATE KEY UPDATE Name = VALUES(Name), Country = VALUES(Country), State = VALUES(State), City = VALUES(City), Telephone = VALUES(Telephone), AddressLine1 = VALUES(AddressLine1), AddressLine2 = VALUES(AddressLine2), DoB = VALUES(DoB), grossSalaryFY2019_20 = VALUES(grossSalaryFY2019_20), grossSalaryFY2020_21 = VALUES(grossSalaryFY2020_21), grossSalaryFY2021_22 = VALUES(grossSalaryFY2021_22), grossSalaryFY2022_23 = VALUES(grossSalaryFY2022_23), grossSalaryFY2023_24 = VALUES(grossSalaryFY2023_24);");
 
             return SqlCommand.ToString();
         }
