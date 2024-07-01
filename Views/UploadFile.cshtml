@@ -1,0 +1,11 @@
+@page
+@model Task1.Views.UploadFile
+@{
+    ViewData["Title"] = "UploadFile";
+}
+
+<h1>@ViewData["Title"]</h1>
+<form method="post" enctype="multipart/form-data" action="/YourController/YourAction">
+    <input type="file" name="file" id="file" />
+    <input type="submit" value="Upload" />
+</form>

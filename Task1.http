@@ -1,0 +1,18 @@
+@Task1_HostAddress = http://localhost:5123
+
+GET {{Task1_HostAddress}}/api/uploadfile/
+
+###
+POST {{Task1_HostAddress}}/api/uploadfile/
+
+Content-Disposition: form-data; name="file"; filename="5.csv"
+Content-Type: text/csv
+
+Name,Age,Email
+Aditya,22,aditya.jha@zeuslearning.com
+Test,29,testuser@mail.com
+User,19,user@outlook.com
+AJ,25,aj@gmail.com
+someone,39,some@one.in
+
+###
