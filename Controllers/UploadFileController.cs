@@ -1,15 +1,14 @@
-using api.Services;
+using Task1.Services;
 using Microsoft.AspNetCore.Mvc;
 using Task1.Models;
-using Task1.Services;
 
 namespace Task1.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class UploadFile : ControllerBase
+    public class UploadFileController : ControllerBase
     {
-        FileOperationStorage fos = new FileOperationStorage();
+        readonly FileOperationStorage fos = new();
 
         [HttpGet]
         public async Task<IActionResult> Get()
@@ -49,7 +48,7 @@ namespace Task1.Controllers
 
             string filePath = response.Result.Item2;
             RabbitConnection rc;
-             await RetryPolicies.GetWaitAndRetryPolicy().ExecuteAsync(async () =>
+            await RetryPolicies.GetWaitAndRetryPolicy().ExecuteAsync(async () =>
             {
                 rc = new RabbitConnection("process");
                 rc.BasicPublish(filePath);
@@ -66,7 +65,8 @@ namespace Task1.Controllers
                 foreach (var statement in sqlStatementToStore)
                 {
                     rc.BasicPublish(statement);
-                }            
+                }
+                rc.Dispose();
                 await Task.CompletedTask;
             });
 
@@ -97,6 +97,7 @@ namespace Task1.Controllers
             {
                 RabbitConnection rc = new("saveToDb");
                 rc.BasicPublish(statement);
+                rc.Dispose();
                 await Task.CompletedTask;
             });
             return Ok("Request received!");

@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 using System.Text;
-using api.Services;
 using Polly;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;

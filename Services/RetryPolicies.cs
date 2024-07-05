@@ -2,7 +2,7 @@ using Polly;
 using Polly.CircuitBreaker;
 using Polly.Retry;
 
-namespace api.Services
+namespace Task1.Services
 {
     // Primary Constructor
     public class RetryPolicies()

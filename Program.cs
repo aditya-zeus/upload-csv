@@ -1,5 +1,3 @@
-using api.Services;
-using Polly;
 using Task1.Services;
 
 var builder = WebApplication.CreateBuilder(args);

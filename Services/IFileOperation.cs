@@ -1,5 +1,4 @@
 using System.Text;
-using api.Services;
 using MySqlConnector;
 
 namespace Task1.Services
