@@ -62,7 +62,7 @@ namespace Task1.Controllers
             }
 
             fos.RemoveFile(filePath);
-            return Ok(filePath);
+            return Created();
         }
 
         [HttpPut]

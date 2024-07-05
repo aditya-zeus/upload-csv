@@ -6,6 +6,8 @@ namespace Task1.Services
 {
     public class RabbitConnection : IRabbitConnection
     {
+        static int i = 0;
+        static int j = 0;
         private readonly IConnection _connection;
         private readonly object _lock = new object();
         private readonly string queue_name;
@@ -34,7 +36,7 @@ namespace Task1.Services
                                 autoDelete: false,
                                 arguments: null);
             
-            channel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+            channel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: true);
             channel.Close();
         }
 
@@ -74,6 +76,7 @@ namespace Task1.Services
                     Thread.Sleep(10);
                     channel.BasicAck(deliveryTag: ea.DeliveryTag, multiple: false);
                 };
+                channel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
                 channel.BasicConsume(queue: queue_name,
                                      autoAck: false,
                                      consumer: consumer);
@@ -88,14 +91,19 @@ namespace Task1.Services
             using (var channel = CreateChannel())
             {
                 var consumer = new EventingBasicConsumer(channel);
-                consumer.Received += (model, ea) =>
+                consumer.Received += async (model, ea) =>
                 {
                     var body = ea.Body.ToArray();
                     var message = Encoding.UTF8.GetString(body);
-                    fos.SaveToDb(message);
+                    int res = await fos.SaveToDb(message);
+                    if(res == 0) {
+                        Console.WriteLine("Republishing message...");
+                        BasicPublish(message);
+                    }
                     Thread.Sleep(100);
                     channel.BasicAck(deliveryTag: ea.DeliveryTag, multiple: false);
                 };
+                channel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
                 channel.BasicConsume(queue: queue_name,
                                      autoAck: false,
                                      consumer: consumer);

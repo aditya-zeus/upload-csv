@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5123:80"
+    networks:
+      - my-network
+    depends_on:
+      - rabbitmq
+    environment:
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Port: 5672
+      RabbitMQ__Username: guest
+      RabbitMQ__Password: guest
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    hostname: rabbitmq
+    ports:
+      - "15672:15672"  # RabbitMQ management UI port (optional)
+      - "5672:5672"    # RabbitMQ default port
+    networks:
+      - my-network
+
+networks:
+  my-network:
+    driver: bridge

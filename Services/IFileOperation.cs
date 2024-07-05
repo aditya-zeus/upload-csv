@@ -44,7 +44,8 @@ namespace Task1.Services
             MySqlTransaction transaction;
             // Start a local transaction
             transaction = connection.BeginTransaction();
-            try {
+            try
+            {
                 command.Connection = connection;
                 command.Transaction = transaction;
                 command.CommandText = sCommand;
@@ -58,10 +59,14 @@ namespace Task1.Services
                 await command.PrepareAsync();
                 await command.ExecuteNonQueryAsync();
                 await transaction.CommitAsync();
-            } catch(Exception e) {
+            }
+            catch (Exception e)
+            {
                 Console.WriteLine($"[-] Unable to commit: --- {e}");
                 await transaction.RollbackAsync();
-            } finally {
+            }
+            finally
+            {
                 connection.Close();
             }
         }
@@ -79,9 +84,10 @@ namespace Task1.Services
             connection.Open();
 
             MySqlCommand command = connection.CreateCommand();
-            MySqlTransaction transaction = connection.BeginTransaction();;
+            MySqlTransaction transaction = connection.BeginTransaction(); ;
 
-            try {
+            try
+            {
                 command.Connection = connection;
                 command.Transaction = transaction;
                 command.CommandText = $"DELETE FROM Details WHERE Email = @Email";
@@ -91,14 +97,19 @@ namespace Task1.Services
                 await command.PrepareAsync();
                 res = await command.ExecuteNonQueryAsync();
 
-                if(res > 1) {
+                if (res > 1)
+                {
                     throw new Exception("");
                 }
                 await transaction.CommitAsync();
-            } catch(Exception e) {
+            }
+            catch (Exception e)
+            {
                 Console.WriteLine($"[-] Unable to commit: --- {e}");
                 await transaction.RollbackAsync();
-            } finally {
+            }
+            finally
+            {
                 connection.Close();
             }
 
@@ -147,6 +158,18 @@ namespace Task1.Services
                     string columnName = reader.GetName(i);
                     object? columnValue = reader.IsDBNull(i) ? null : reader.GetValue(i);
 
+                    if (columnName == "DoB")
+                    {
+                        string? value = columnValue?.ToString();
+                        if (DateTime.TryParseExact(value, "dd-MMM-yy h:mm:ss tt",
+                                                   System.Globalization.CultureInfo.InvariantCulture,
+                                                   System.Globalization.DateTimeStyles.None, out DateTime dateTime))
+                        {
+                            // Get the date part
+                            columnValue = dateTime.ToString("dd-MMM-yy");
+                        }
+                    }
+
                     data.Add(columnName, columnValue ?? string.Empty);
                 }
                 res.Add(data);
@@ -157,14 +180,16 @@ namespace Task1.Services
             return res;
         }
 
-        public static string GetParamaterizedQuery(List<string[]> rows, int iFrom, int iTo, int cols) {
+        public static string GetParamaterizedQuery(List<string[]> rows, int iFrom, int iTo, int cols)
+        {
             StringBuilder SqlCommand = new StringBuilder(@"INSERT IGNORE INTO Details(Email, Name, Country, State, City, Telephone, AddressLine1, AddressLine2, DoB, GrossSalaryFY2019_20, GrossSalaryFY2020_21, GrossSalaryFY2021_22, GrossSalaryFY2022_23, GrossSalaryFY2023_24) VALUES");
 
-            for(int i = iFrom; i < iTo; i++)
+            for (int i = iFrom; i < iTo; i++)
             {
                 // SqlCommand.Append("(" + string.Join(", ", rows[i]) + "), ");
                 SqlCommand.Append('(');
-                for(int j = 0; j < cols; j++) {
+                for (int j = 0; j < cols; j++)
+                {
                     SqlCommand.Append("\"" + rows[i][j] + "\", ");
                 }
                 SqlCommand.Remove(SqlCommand.Length - 2, 2);
@@ -176,14 +201,19 @@ namespace Task1.Services
             return SqlCommand.ToString();
         }
 
-        public static async void SaveToDb(string connectionString, string query) {
-            using var connection = new MySqlConnection(connectionString);
-            await connection.OpenAsync();
+        public static async Task<int> SaveToDb(string connectionString, string query)
+        {
+            // using var connection = new MySqlConnection(connectionString);
+            // await connection.OpenAsync();
+            MySqlConnection connection = default!;
+            MySqlTransaction transaction = default!;
 
-            MySqlCommand command = connection.CreateCommand();
-            MySqlTransaction transaction  = connection.BeginTransaction();
-
-            try {
+            try
+            {
+                connection = new MySqlConnection(connectionString);
+                await connection.OpenAsync();
+                MySqlCommand command = connection.CreateCommand();
+                transaction = connection.BeginTransaction();
                 command.Connection = connection;
                 command.Transaction = transaction;
                 command.CommandText = query;
@@ -191,15 +221,19 @@ namespace Task1.Services
                 await command.PrepareAsync();
                 await command.ExecuteNonQueryAsync();
                 await transaction.CommitAsync();
-            } catch(Exception e) {
+            }
+            catch (Exception e)
+            {
                 Console.WriteLine($"[-] Unable to commit: --- {e.Message} | Republishing...");
                 await transaction.RollbackAsync();
                 var rc = new RabbitConnection("saveToDb");
                 rc.BasicPublish(query);
-            } finally {
-                await connection.CloseAsync();
+            }
+            finally
+            {
                 await connection.CloseAsync();
             }
+            return 1;
         }
     }
 }

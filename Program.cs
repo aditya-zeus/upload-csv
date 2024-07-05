@@ -1,7 +1,18 @@
 using Task1.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("ReactPolicy",
+            builder =>
+            {
+                builder.WithOrigins("http://localhost:3000") // Adjust with your React app URL
+                       .AllowAnyHeader()
+                       .AllowAnyMethod();
+            });
+    });
+
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -10,6 +21,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+app.UseCors("ReactPolicy");
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
