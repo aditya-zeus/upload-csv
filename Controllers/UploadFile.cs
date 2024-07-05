@@ -1,3 +1,4 @@
+using api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Task1.Models;
 using Task1.Services;
@@ -36,7 +37,7 @@ namespace Task1.Controllers
         }
 
         [HttpPost]
-        public IActionResult PostAsync(IFormFile file)
+        public async Task<IActionResult> PostAsync(IFormFile file)
         {
 
             // Upload file
@@ -47,26 +48,34 @@ namespace Task1.Controllers
             }
 
             string filePath = response.Result.Item2;
-            RabbitConnection rc = new RabbitConnection("process");
-            rc.BasicPublish(filePath);
-            rc.Dispose();
+            RabbitConnection rc;
+             await RetryPolicies.GetWaitAndRetryPolicy().ExecuteAsync(async () =>
+            {
+                rc = new RabbitConnection("process");
+                rc.BasicPublish(filePath);
+                rc.Dispose();
+                await Task.CompletedTask;
+            });
 
             List<string> sqlStatementToStore = fos.GetSqlStatement(filePath);
             // string sqlStatementToStore = fos.SaveToDB(filepath);
-            rc = new RabbitConnection("saveToDb");
 
-
-            foreach (var statement in sqlStatementToStore)
+            await RetryPolicies.GetWaitAndRetryPolicy().ExecuteAsync(async () =>
             {
-                rc.BasicPublish(statement);
-            }
+                rc = new RabbitConnection("saveToDb");
+                foreach (var statement in sqlStatementToStore)
+                {
+                    rc.BasicPublish(statement);
+                }            
+                await Task.CompletedTask;
+            });
 
             fos.RemoveFile(filePath);
             return Created();
         }
 
         [HttpPut]
-        public IActionResult PutAsync(string email, string name, string country, string state, string city, string telephone, string addressLine1, string addressLine2, string dob, int? grossSalaryFY2019_20, int? grossSalaryFY2020_21, int? grossSalaryFY2021_22, int? grossSalaryFY2022_23, int? grossSalaryFY2023_24)
+        public async Task<IActionResult> PutAsync(string email, string name, string country, string state, string city, string telephone, string addressLine1, string addressLine2, string dob, int? grossSalaryFY2019_20, int? grossSalaryFY2020_21, int? grossSalaryFY2021_22, int? grossSalaryFY2022_23, int? grossSalaryFY2023_24)
         {
             // TODO: Some issues while receiving DateOnly
 
@@ -84,8 +93,12 @@ namespace Task1.Controllers
 
 
             var statement = $"INSERT IGNORE INTO Details(Email, Name, Country, State, City, Telephone, AddressLine1, AddressLine2, DoB, grossSalaryFY2019_20, grossSalaryFY2020_21, grossSalaryFY2021_22, grossSalaryFY2022_23, grossSalaryFY2023_24) VALUES('{email}', '{name}', '{country}', '{state}', '{city}', '{telephone}', '{addressLine1}', '{addressLine2}', '{outputDate}', {grossSalaryFY2019_20}, {grossSalaryFY2020_21}, {grossSalaryFY2021_22}, {grossSalaryFY2022_23}, {grossSalaryFY2023_24}) ON DUPLICATE KEY UPDATE Name = VALUES(Name), Country = VALUES(Country), State = VALUES(State), City = VALUES(City), Telephone = VALUES(Telephone), AddressLine1 = VALUES(AddressLine1), AddressLine2 = VALUES(AddressLine2), DoB = VALUES(DoB), grossSalaryFY2019_20 = VALUES(grossSalaryFY2019_20), grossSalaryFY2020_21 = VALUES(grossSalaryFY2020_21), grossSalaryFY2021_22 = VALUES(grossSalaryFY2021_22), grossSalaryFY2022_23 = VALUES(grossSalaryFY2022_23), grossSalaryFY2023_24 = VALUES(grossSalaryFY2023_24);";
-            RabbitConnection rc = new("saveToDb");
-            rc.BasicPublish(statement);
+             await RetryPolicies.GetWaitAndRetryPolicy().ExecuteAsync(async () =>
+            {
+                RabbitConnection rc = new("saveToDb");
+                rc.BasicPublish(statement);
+                await Task.CompletedTask;
+            });
             return Ok("Request received!");
         }
 

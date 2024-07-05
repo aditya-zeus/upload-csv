@@ -1,3 +1,5 @@
+using api.Services;
+using Polly;
 using Task1.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,14 +37,28 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Workers
-RabbitConnection savingToDb = new RabbitConnection("saveToDb");
-RabbitConnection fileProcessing = new RabbitConnection(_queue_name: "process");
-
 Thread runApp = new Thread(new ThreadStart(app.Run));
+runApp.Start();
+
+// Workers
+RabbitConnection savingToDb = default!;
+await RetryPolicies.GetWaitAndRetryPolicy().ExecuteAsync(async () => {
+    Console.WriteLine("Trying connection to RabbitMq for 'saveToDb'");
+    savingToDb = new RabbitConnection(_queue_name: "saveToDb");
+    await Task.CompletedTask;
+});
+
+RabbitConnection fileProcessing = default!;
+await RetryPolicies.GetWaitAndRetryPolicy().ExecuteAsync(async () => {
+    Console.WriteLine("Trying connection to RabbitMq for 'process'");
+    fileProcessing = new RabbitConnection(_queue_name: "process");
+    await Task.CompletedTask;
+});
+
+// RabbitConnection fileProcessing = new RabbitConnection(_queue_name: "process");
+
 Thread subscribeSavingToDb = new Thread(new ThreadStart(savingToDb.SaveToDb));
 Thread subscribeFileProcessing = new Thread(new ThreadStart(fileProcessing.BasicSubscribe));
 
-runApp.Start();
 subscribeSavingToDb.Start();
 subscribeFileProcessing.Start();

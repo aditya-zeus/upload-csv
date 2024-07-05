@@ -1,4 +1,5 @@
 using System.Text;
+using api.Services;
 using MySqlConnector;
 
 namespace Task1.Services
@@ -226,8 +227,12 @@ namespace Task1.Services
             {
                 Console.WriteLine($"[-] Unable to commit: --- {e.Message} | Republishing...");
                 await transaction.RollbackAsync();
-                var rc = new RabbitConnection("saveToDb");
-                rc.BasicPublish(query);
+                await RetryPolicies.GetWaitAndRetryPolicy().ExecuteAsync(async () =>
+                {
+                    var rc = new RabbitConnection("saveToDb");
+                    rc.BasicPublish(query);
+                    await Task.CompletedTask;
+                });
             }
             finally
             {
