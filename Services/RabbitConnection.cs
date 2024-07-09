@@ -12,6 +12,7 @@ namespace Task1.Services
         private readonly object _lock = new object();
         private string? queue_name;
         private readonly FileOperationStorage fos = new FileOperationStorage();
+        private readonly MongoConnection mongo = new();
 
         public RabbitConnection()
         {
@@ -83,8 +84,12 @@ namespace Task1.Services
                     consumer.Received += (model, ea) =>
                     {
                         var body = ea.Body.ToArray();
-                        var message = Encoding.UTF8.GetString(body);
-                        Console.WriteLine($" [x] Received {message}");
+                        var msg = Encoding.UTF8.GetString(body);
+                        var message = msg.Split("|")[0];
+                        // var id = msg.Split("|")[1];
+                        // var status = msg.Split("|")[2];
+                        // Console.WriteLine($" [x] Received {message}");
+                        // mongo.UpdateOneState(id, $"Executing {status}");
                         channel.BasicAck(deliveryTag: ea.DeliveryTag, multiple: false);
                     };
                     channel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
@@ -109,7 +114,12 @@ namespace Task1.Services
                     consumer.Received += async (model, ea) =>
                     {
                         var body = ea.Body.ToArray();
-                        var message = Encoding.UTF8.GetString(body);
+                        var msg = Encoding.UTF8.GetString(body);
+                        var message = msg.Split("|")[0];
+                        var id = msg.Split("|")[1];
+                        var status = msg.Split("|")[2];
+                        // Console.WriteLine($" [x] Received {message}");
+                        mongo.UpdateOneState(id, $"Executing {status}");
                         int res = await fos.SaveToDb(message);
                         if(res == 0) {
                             Console.WriteLine("Republishing message...");

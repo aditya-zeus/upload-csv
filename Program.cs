@@ -1,3 +1,4 @@
+using Task1;
 using Task1.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -60,3 +61,7 @@ Thread subscribeFileProcessing = new Thread(new ThreadStart(fileProcessing.Basic
 
 subscribeSavingToDb.Start();
 subscribeFileProcessing.Start();
+
+// Console.WriteLine("Fetching from Mongo");
+// Test.test();
+// mongodb+srv://aditya:PasswordForUploadCsv@upload-csv.lbp5ki1.mongodb.net/?retryWrites=true&w=majority&appName=Upload-CSV

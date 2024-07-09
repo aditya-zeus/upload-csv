@@ -8,7 +8,8 @@ namespace Task1.Controllers
     [Route("api/[controller]")]
     public class UploadFileController : ControllerBase
     {
-        readonly FileOperationStorage fos = new();
+        private readonly FileOperationStorage fos = new();
+        private readonly MongoConnection mongo = new();
 
         [HttpGet]
         public async Task<IActionResult> Get()
@@ -21,6 +22,17 @@ namespace Task1.Controllers
         public async Task<IActionResult> Get(int iFrom, int iTo)
         {
             var res = await fos.GetData(true, null, iFrom, iTo);
+            return Ok(res);
+        }
+
+        [HttpGet("/db/id")]
+        public async Task<IActionResult> GetDataAndDelete(string id)
+        {
+            var res = await mongo.GetOne(id);
+
+            if(res == "Executing 1000/1000") {
+                await mongo.DeleteOne(id);
+            }
             return Ok(res);
         }
 
@@ -38,40 +50,60 @@ namespace Task1.Controllers
         [HttpPost]
         public async Task<IActionResult> PostAsync(IFormFile file)
         {
-
             // Upload file
             var response = fos.SaveFile(file);
             if (response.Result.Item1 == "BadRequest")
             {
                 return BadRequest(response.Result.Item2);
             }
-
             string filePath = response.Result.Item2;
+            var id = PostHelper(filePath);
+            return Ok(id);
+        }
+
+        private async Task<string> PostHelper(string filePath)
+        {
+            StateObject so = new StateObject
+            {
+                State = "Queued"
+            };
+
+
+            // process == useless queue
+            // string filePath = response.Result.Item2;
             RabbitConnection rc;
             await RetryPolicies.GetWaitAndRetryPolicy().ExecuteAsync(async () =>
             {
+                mongo.InsertOne(so);
                 rc = new RabbitConnection("process");
-                rc.BasicPublish(filePath);
+                rc.BasicPublish($"{filePath}|{so.Id}|");
                 rc.Dispose();
                 await Task.CompletedTask;
             });
+
+            so.State = $"Preparing Query";
 
             List<string> sqlStatementToStore = fos.GetSqlStatement(filePath);
             // string sqlStatementToStore = fos.SaveToDB(filepath);
 
             await RetryPolicies.GetWaitAndRetryPolicy().ExecuteAsync(async () =>
             {
+                int len = sqlStatementToStore.Count;
+                int current = 1;
                 rc = new RabbitConnection("saveToDb");
                 foreach (var statement in sqlStatementToStore)
                 {
-                    rc.BasicPublish(statement);
+                    rc.BasicPublish($"{statement}|{so.Id}|{current}/{len}");
+                    mongo.UpdateOneState(so.Id.ToString(), $"Preparing {current++}/{len}");
                 }
                 rc.Dispose();
+                // so.State = $"Preparing {current-1}/{len}";
                 await Task.CompletedTask;
+                mongo.UpdateOneState(so.Id.ToString(), so.State);
             });
 
             fos.RemoveFile(filePath);
-            return Created();
+            return so.Id.ToString();
         }
 
         [HttpPut]
@@ -93,13 +125,13 @@ namespace Task1.Controllers
 
 
             var statement = $"INSERT IGNORE INTO Details(Email, Name, Country, State, City, Telephone, AddressLine1, AddressLine2, DoB, grossSalaryFY2019_20, grossSalaryFY2020_21, grossSalaryFY2021_22, grossSalaryFY2022_23, grossSalaryFY2023_24) VALUES('{email}', '{name}', '{country}', '{state}', '{city}', '{telephone}', '{addressLine1}', '{addressLine2}', '{outputDate}', {grossSalaryFY2019_20}, {grossSalaryFY2020_21}, {grossSalaryFY2021_22}, {grossSalaryFY2022_23}, {grossSalaryFY2023_24}) ON DUPLICATE KEY UPDATE Name = VALUES(Name), Country = VALUES(Country), State = VALUES(State), City = VALUES(City), Telephone = VALUES(Telephone), AddressLine1 = VALUES(AddressLine1), AddressLine2 = VALUES(AddressLine2), DoB = VALUES(DoB), grossSalaryFY2019_20 = VALUES(grossSalaryFY2019_20), grossSalaryFY2020_21 = VALUES(grossSalaryFY2020_21), grossSalaryFY2021_22 = VALUES(grossSalaryFY2021_22), grossSalaryFY2022_23 = VALUES(grossSalaryFY2022_23), grossSalaryFY2023_24 = VALUES(grossSalaryFY2023_24);";
-             await RetryPolicies.GetWaitAndRetryPolicy().ExecuteAsync(async () =>
-            {
-                RabbitConnection rc = new("saveToDb");
-                rc.BasicPublish(statement);
-                rc.Dispose();
-                await Task.CompletedTask;
-            });
+            await RetryPolicies.GetWaitAndRetryPolicy().ExecuteAsync(async () =>
+           {
+               RabbitConnection rc = new("saveToDb");
+               rc.BasicPublish($"{statement}||");
+               rc.Dispose();
+               await Task.CompletedTask;
+           });
             return Ok("Request received!");
         }
 

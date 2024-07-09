@@ -1,31 +1,56 @@
-version: '3.8'
+# version: '3.8'
+
+# services:
+#   rabbitmq:
+#     image: rabbitmq:3.13-management
+#     hostname: rabbitmq
+#     ports:
+#       - "15672:15672"  # RabbitMQ management UI port (optional)
+#       - "5672:5672"    # RabbitMQ default port
+#     networks:
+#       - my-network
+
+# networks:
+#   my-network:
+#     driver: bridge
+
+version: '3.1'
 
 services:
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+
+  mongo:
+    image: mongo
+    restart: always
+    # environment:
+    #   MONGO_INITDB_ROOT_USERNAME: root
+    #   MONGO_INITDB_ROOT_PASSWORD: example
     ports:
-      - "5123:80"
-    networks:
-      - my-network
-    depends_on:
-      - rabbitmq
+      - 27017:27017
+
+  mongo-express:
+    image: mongo-express
+    restart: always
+    ports:
+      - 8081:8081
+      # - 27017:27017
     environment:
-      RabbitMQ__Host: rabbitmq
-      RabbitMQ__Port: 5672
-      RabbitMQ__Username: guest
-      RabbitMQ__Password: guest
+      ME_CONFIG_MONGODB_URL: mongodb://mongo:27017/
+      ME_CONFIG_BASICAUTH: "false"
 
   rabbitmq:
     image: rabbitmq:3.13-management
     hostname: rabbitmq
+    restart: always
     ports:
-      - "15672:15672"  # RabbitMQ management UI port (optional)
-      - "5672:5672"    # RabbitMQ default port
-    networks:
-      - my-network
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
 
-networks:
-  my-network:
-    driver: bridge
+  # upload-csv:
+  #   build: /mnt/d/C#/Task/Task1/api/bin/Debug/net8.0/Task1.dll  # or use image: if already built
+  #   depends_on:
+  #     - mongo
+  #   environment:
+  #     MongoDBConnectionString: "mongodb://root:example@mongo:27017/StateObject"
